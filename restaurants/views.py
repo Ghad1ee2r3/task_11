@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect
 from .models import Restaurant, Item
 from .forms import RestaurantForm, ItemForm, SignupForm, SigninForm
 from django.contrib.auth import login, authenticate, logout
+from django.http import Http404
 
 def signup(request):
     form = SignupForm()
@@ -59,6 +60,8 @@ def restaurant_detail(request, restaurant_id):
     return render(request, 'detail.html', context)
 
 def restaurant_create(request):
+    if request.user.is_anonymous:
+        return redirect('signin')
     form = RestaurantForm()
     if request.method == "POST":
         form = RestaurantForm(request.POST, request.FILES)
@@ -73,6 +76,9 @@ def restaurant_create(request):
     return render(request, 'create.html', context)
 
 def item_create(request, restaurant_id):
+    restaurant_obj = Restaurant.objects.get(id=restaurant_id)
+    if not(request.user  ==  restaurant_obj.owner or request.user.is_staff  ) :
+        return redirect('notallow')
     form = ItemForm()
     restaurant = Restaurant.objects.get(id=restaurant_id)
     if request.method == "POST":
@@ -90,6 +96,8 @@ def item_create(request, restaurant_id):
 
 def restaurant_update(request, restaurant_id):
     restaurant_obj = Restaurant.objects.get(id=restaurant_id)
+    if not(restaurant_obj.owner == request.user or request.user.is_staff ) :
+        return redirect('notallow')
     form = RestaurantForm(instance=restaurant_obj)
     if request.method == "POST":
         form = RestaurantForm(request.POST, request.FILES, instance=restaurant_obj)
@@ -103,6 +111,13 @@ def restaurant_update(request, restaurant_id):
     return render(request, 'update.html', context)
 
 def restaurant_delete(request, restaurant_id):
+    restaurant=Restaurant.objects.get(id= restaurant_id)
+
+    if not(restaurant.owner == request.user.is_staff) :
+        return redirect('notallow')
     restaurant_obj = Restaurant.objects.get(id=restaurant_id)
     restaurant_obj.delete()
     return redirect('restaurant-list')
+
+def notallow(request):
+    return render(request, 'notallow.html')
